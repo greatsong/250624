@@ -1,87 +1,37 @@
 import streamlit as st
+import pandas as pd
 
-# MBTI 유형별 성격 설명 및 추천 직업
-mbti_info = {
-    "ISTJ": {
-        "desc": "신중하고 책임감 있는 관리자 🧾",
-        "jobs": ["회계사 🧮", "행정 공무원 🏛️", "법무 전문가 ⚖️"]
-    },
-    "ISFJ": {
-        "desc": "조용하지만 헌신적인 도우미 💗",
-        "jobs": ["간호사 🏥", "초등교사 📚", "사회복지사 🤝"]
-    },
-    "INFJ": {
-        "desc": "통찰력 있는 조용한 이상주의자 🌌",
-        "jobs": ["상담가 🧠", "작가 ✍️", "심리학자 🧬"]
-    },
-    "INTJ": {
-        "desc": "전략적인 혁신가 📊",
-        "jobs": ["전략 컨설턴트 🧩", "시스템 분석가 🖥️", "연구 과학자 🔬"]
-    },
-    "ISTP": {
-        "desc": "냉철한 실용주의자 🛠️",
-        "jobs": ["엔지니어 ⚙️", "파일럿 ✈️", "정비사 🔧"]
-    },
-    "ISFP": {
-        "desc": "조용한 예술가 🎨",
-        "jobs": ["디자이너 🖌️", "요리사 🍳", "플로리스트 💐"]
-    },
-    "INFP": {
-        "desc": "이상과 가치를 좇는 몽상가 🌈",
-        "jobs": ["작가 ✒️", "예술가 🖼️", "심리상담사 🧘‍♂️"]
-    },
-    "INTP": {
-        "desc": "논리적인 사색가 🔍",
-        "jobs": ["데이터 분석가 📈", "개발자 💻", "이론 물리학자 📐"]
-    },
-    "ESTP": {
-        "desc": "액션과 도전을 즐기는 해결사 🧗‍♂️",
-        "jobs": ["영업사원 💼", "기업가 🚀", "경찰관 👮‍♀️"]
-    },
-    "ESFP": {
-        "desc": "분위기를 밝히는 퍼포머 🌟",
-        "jobs": ["연예인 🎤", "이벤트 플래너 🎪", "패션 스타일리스트 👗"]
-    },
-    "ENFP": {
-        "desc": "아이디어 뱅크, 자유로운 영혼 💡",
-        "jobs": ["마케터 📣", "작가 📝", "인플루언서 📱"]
-    },
-    "ENTP": {
-        "desc": "말 잘하는 창의적인 설득가 🗣️",
-        "jobs": ["창업가 💡", "프로덕트 매니저 🧠", "변호사 🧑‍⚖️"]
-    },
-    "ESTJ": {
-        "desc": "현실적이고 체계적인 조직자 🧱",
-        "jobs": ["관리자 🗂️", "군 간부 🎖️", "프로젝트 매니저 📋"]
-    },
-    "ESFJ": {
-        "desc": "사람을 챙기는 따뜻한 리더 🤗",
-        "jobs": ["교사 🧑‍🏫", "간호사 💉", "호텔 매니저 🏨"]
-    },
-    "ENFJ": {
-        "desc": "사람의 잠재력을 끌어내는 멘토 🌱",
-        "jobs": ["상담가 🧑‍⚕️", "리더십 코치 🎯", "교육자 📖"]
-    },
-    "ENTJ": {
-        "desc": "결단력 있는 리더 💼",
-        "jobs": ["CEO 👔", "전략 기획가 🧭", "조직 관리자 🧱"]
-    },
-}
+st.title("2025년 5월 기준 연령별 인구 현황")
 
-# 앱 제목
-st.title("🧬 MBTI에 따른 직업 추천 사이트")
-st.caption("당신의 성격 유형을 바탕으로 어울리는 직업을 추천해드려요! 😊")
+# 데이터 불러오기
+@st.cache_data
+def load_data():
+    df = pd.read_csv("202505_202505_연령별인구현황_월간.csv", encoding="euc-kr")
+    df['행정구역'] = df['행정구역'].str.extract(r'([\uAC00-\uD7A3]+)')  # 한글 추출
+    return df
 
-# MBTI 선택
-selected_mbti = st.selectbox("🔎 MBTI 유형을 선택해주세요", list(mbti_info.keys()))
+df = load_data()
 
-# 결과 출력
-if selected_mbti:
-    st.markdown("---")
-    st.subheader(f"🧠 {selected_mbti}형: {mbti_info[selected_mbti]['desc']}")
-    st.markdown("### 👇 추천 직업 리스트")
-    for job in mbti_info[selected_mbti]['jobs']:
-        st.markdown(f"- {job}")
-    
-    # 풍선 효과
-    st.balloons()
+# 전처리
+total_col = '2025년05월_계_총인구수'
+age_columns = [col for col in df.columns if col.startswith('2025년05월_계_') and '세' in col]
+
+df[total_col] = df[total_col].astype(str).str.replace(',', '', regex=False).astype(int)
+df[age_columns] = df[age_columns].astype(str).apply(lambda x: x.str.replace(',', '', regex=False).astype(int))
+
+top5 = df.nlargest(5, total_col).copy()
+age_labels = [col.replace('2025년05월_계_', '') for col in age_columns]
+top5.columns = list(top5.columns[:3]) + age_labels
+
+# 연령별 인구 테이블 변환
+df_chart = top5.set_index('행정구역')[age_labels].T
+df_chart.index.name = '연령'
+df_chart = df_chart.reset_index()
+
+# 시각화
+st.subheader("상위 5개 행정구역의 연령별 인구 분포")
+st.line_chart(df_chart.set_index("연령"))
+
+# 원본 데이터 표시
+st.subheader("원본 데이터 (상위 5개 지역)")
+st.dataframe(top5)
